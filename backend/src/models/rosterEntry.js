@@ -1,0 +1,70 @@
+const mongoose = require("mongoose");
+
+const rosterEntrySchema = new mongoose.Schema(
+  {
+    rosterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Roster",
+      required: true,
+    },
+
+    employeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      required: true,
+    },
+
+    brandId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
+      required: true,
+    },
+
+    processId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Process",
+      required: true,
+    },
+
+    date: {
+      type: Date,
+      required: true,
+    },
+
+    status: {
+      type: String,
+      enum: ["SCHEDULED", "CANCELLED"],
+      default: "SCHEDULED",
+    },
+
+    source: {
+      type: String,
+      enum: ["AUTO", "MANUAL"],
+      default: "AUTO",
+    },
+
+    notes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+// useful for finding assignments by roster and date
+rosterEntrySchema.index({
+  rosterId: 1,
+  date: 1,
+});
+
+// useful for finding an employee's assignments
+rosterEntrySchema.index({
+  employeeId: 1,
+  date: 1,
+});
+
+const RosterEntry = mongoose.model("RosterEntry", rosterEntrySchema);
+module.exports = RosterEntry;
