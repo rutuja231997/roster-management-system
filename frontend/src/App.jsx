@@ -8,9 +8,10 @@ import Pods from "./pages/Pods";
 import Brands from "./pages/Brands";
 import Processes from "./pages/Processes";
 import Allocations from "./pages/Allocations";
+import WorkingRules from "./pages/WorkingRules";
 
 import { Provider } from "react-redux";
-import appStore from "./utils/appStore";
+import appStore from "./utils/redux/appStore";
 
 function App() {
   return (
@@ -28,7 +29,7 @@ function App() {
             <Route path="/allocations" element={<Allocations />} />
 
             {/* Add these pages when implemented */}
-            {/* <Route path="/working-rules" element={<WorkingRules />} /> */}
+            <Route path="/working-rules" element={<WorkingRules />} />
             {/* <Route path="/availability" element={<Availability />} /> */}
             {/* <Route path="/rosters" element={<Rosters />} /> */}
           </Route>
