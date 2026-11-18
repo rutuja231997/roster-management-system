@@ -81,55 +81,55 @@ The backend provides the APIs and business logic required to generate monthly em
 
 ## 3. Backend Project Structure
 
-```text
-server/
+backend/
 │
-├── config/
-│   └── database.js
-│
-├── models/
-│   ├── Employee.js
-│   ├── Pod.js
-│   ├── Brand.js
-│   ├── Process.js
-│   ├── Allocation.js
-│   ├── WorkingRule.js
-│   ├── Availability.js
-│   ├── EmployeeWorkPattern.js
-│   ├── Roster.js
-│   └── RosterEntry.js
-│
-├── controllers/
-│   ├── employeeController.js
-│   ├── podController.js
-│   ├── brandController.js
-│   ├── processController.js
-│   └── allocationController.js
-│
-├── routes/
-│   ├── employeeRoutes.js
-│   ├── podRoutes.js
-│   ├── brandRoutes.js
-│   ├── processRoutes.js
-│   └── allocationRoutes.js
-│
-├── middleware/
-│
-├── services/
-│
-├── utils/
-│   └── allocationHelpers.js
-│
-├── seed/
+├── src/
+│ │
+│ ├── config/
+│ │ └── database.js
+│ │
+│ ├── models/
+│ │ ├── Employee.js
+│ │ ├── Pod.js
+│ │ ├── Brand.js
+│ │ ├── Process.js
+│ │ ├── Allocation.js
+│ │ ├── WorkingRule.js
+│ │ ├── Availability.js
+│ │ ├── EmployeeWorkPattern.js
+│ │ ├── Roster.js
+│ │ └── RosterEntry.js
+│ │
+│ ├── controllers/
+│ │ ├── employeeController.js
+│ │ ├── podController.js
+│ │ ├── brandController.js
+│ │ ├── processController.js
+│ │ └── allocationController.js
+│ │
+│ ├── routes/
+│ │ ├── employeeRoutes.js
+│ │ ├── podRoutes.js
+│ │ ├── brandRoutes.js
+│ │ ├── processRoutes.js
+│ │ └── allocationRoutes.js
+│ │
+│ ├── middleware/
+│ │
+│ ├── utils/
+│ │ └── allocationHelpers.js
+│ │
+│ ├── seed/
+│ │ ├── employeeSeed.js
+│ │ └── runEmployeeSeed.js
+│ │
+│ └── app.js
 │
 ├── .env
 ├── .env.example
 ├── .gitignore
 ├── package.json
-└── server.js
-```
-
-The structure represents the current backend organization and planned locations for upcoming services and middleware. Some directories may be created as development progresses.
+└── package-lock.json
 
 ---
 

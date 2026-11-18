@@ -12,8 +12,8 @@ const podSchema = new mongoose.Schema(
 
     leadEmployeeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: Employee,
-      deafult: null,
+      ref: "Employee",
+      default: null,
     },
 
     description: {

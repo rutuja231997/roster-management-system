@@ -122,7 +122,7 @@ const updateProcess = async (req, res) => {
       });
     }
 
-    const allowedFields = ["name", "description"];
+    const allowedFields = ["name", "description", "status"];
     const updateData = {};
 
     for (const field of allowedFields) {

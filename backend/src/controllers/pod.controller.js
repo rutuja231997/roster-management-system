@@ -49,11 +49,62 @@ const createPod = async (req, res) => {
 };
 
 // 2. Get all Pods
+// const getAllPods = async (req, res) => {
+//   try {
+//     const pods = await Pod.find()
+//       .populate("leadEmployeeId", "firstName lastName employeeCode")
+//       .sort({ createdAt: -1 });
+
+//     return res.status(200).json({
+//       message: "Pods fetched successfully",
+//       data: pods,
+//     });
+//   } catch (error) {
+//     console.error("Get All Pods Error:", error);
+
+//     return res.status(500).json({
+//       message: "Internal server error",
+//     });
+//   }
+// };
+
 const getAllPods = async (req, res) => {
   try {
-    const pods = await Pod.find()
-      .populate("leadEmployeeId", "firstName lastName employeeCode")
-      .sort({ createdAt: -1 });
+    const pods = await Pod.aggregate([
+      {
+        $lookup: {
+          from: "employees",
+          localField: "_id",
+          foreignField: "podId",
+          as: "employees",
+        },
+      },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "leadEmployeeId",
+          foreignField: "_id",
+          as: "leadEmployee",
+        },
+      },
+      {
+        $addFields: {
+          employeeCount: { $size: "$employees" },
+          leadEmployeeId: {
+            $arrayElemAt: ["$leadEmployee", 0],
+          },
+        },
+      },
+      {
+        $project: {
+          employees: 0,
+          leadEmployee: 0,
+        },
+      },
+      {
+        $sort: { createdAt: -1 },
+      },
+    ]);
 
     return res.status(200).json({
       message: "Pods fetched successfully",
