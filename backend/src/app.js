@@ -14,6 +14,7 @@ const podRouter = require("./routes/pod.route");
 const brandRouter = require("./routes/brand.route");
 const allocationRouter = require("./routes/allocation.route");
 const processRouter = require("./routes/process.route");
+const workingRuleRouter = require("./routes/workingRule.route");
 
 // instance of express
 const app = express();
@@ -50,6 +51,7 @@ app.use("/api", podRouter);
 app.use("/api", brandRouter);
 app.use("/api", allocationRouter);
 app.use("/api", processRouter);
+app.use("/api", workingRuleRouter);
 
 app.use((req, res) => {
   res.send("server is listening");

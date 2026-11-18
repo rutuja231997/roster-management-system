@@ -1,5 +1,15 @@
 const mongoose = require("mongoose");
 
+const validDays = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+];
+
 const workingRuleSchema = new mongoose.Schema(
   {
     brandId: {
@@ -16,16 +26,12 @@ const workingRuleSchema = new mongoose.Schema(
 
     operatingDays: {
       type: [String],
-      enum: [
-        "MONDAY",
-        "TUESDAY",
-        "WEDNESDAY",
-        "THURSDAY",
-        "FRIDAY",
-        "SATURDAY",
-        "SUNDAY",
-      ],
+      enum: validDays,
       required: true,
+      validate: {
+        validator: (days) => days.length > 0,
+        message: "At least one operating day is required.",
+      },
     },
 
     operatesOnPublicHolidays: {
@@ -37,15 +43,7 @@ const workingRuleSchema = new mongoose.Schema(
       {
         day: {
           type: String,
-          enum: [
-            "MONDAY",
-            "TUESDAY",
-            "WEDNESDAY",
-            "THURSDAY",
-            "FRIDAY",
-            "SATURDAY",
-            "SUNDAY",
-          ],
+          enum: validDays,
           required: true,
         },
 
@@ -53,6 +51,10 @@ const workingRuleSchema = new mongoose.Schema(
           type: Number,
           required: true,
           min: 0,
+          validate: {
+            validator: Number.isInteger,
+            message: "Required employees must be a whole number.",
+          },
         },
       },
     ],
@@ -68,7 +70,20 @@ const workingRuleSchema = new mongoose.Schema(
   },
 );
 
-// one working rule per brand-process combination
+// Validate minimum staffing days against operating days
+workingRuleSchema.path("minimumStaffing").validate(function (staffing) {
+  const staffingDays = staffing.map((item) => item.day);
+
+  // Check for duplicate staffing days
+  if (new Set(staffingDays).size !== staffingDays.length) {
+    return false;
+  }
+
+  // Check that staffing days are operating days
+  return staffingDays.every((day) => this.operatingDays.includes(day));
+}, "Staffing days must be unique and must belong to the operating days.");
+
+// One working rule per brand-process combination
 workingRuleSchema.index(
   {
     brandId: 1,
@@ -78,4 +93,5 @@ workingRuleSchema.index(
 );
 
 const workingRule = mongoose.model("workingRule", workingRuleSchema);
+
 module.exports = workingRule;
