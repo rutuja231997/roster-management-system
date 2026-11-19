@@ -6,6 +6,7 @@ node_modules/
 .env
 .env.*
 
+roster.md
 # Allow example environment file
 !.env.example
 

@@ -10,12 +10,15 @@ const Pod = require("../models/pod");
 const Process = require("../models/process");
 const Allocation = require("../models/allocation");
 const Brand = require("../models/brand");
+const EmployeeWorkPattern = require("../models/employeeWorkPattern");
+const WorkingRule = require("../models/workingRule");
 
 const employeeSeed = require("./data/employeeSeed");
 const podSeed = require("./data/podSeed");
 const processSeed = require("./data/processSeed");
 const brandSeed = require("./data/brandSeed");
 const allocationSeed = require("./data/allocationSeed");
+const employeeWorkPatternSeed = require("./data/employeeWorkPatternSeed");
 
 const runSeed = async () => {
   let session;
@@ -200,6 +203,105 @@ const runSeed = async () => {
       }
 
       console.log(`${allocationCount} allocations seeded.`);
+
+      // seed working rules
+
+      // 8. Seed Working Rules
+
+      const operatingDays = [
+        "MONDAY",
+        "TUESDAY",
+        "WEDNESDAY",
+        "THURSDAY",
+        "FRIDAY",
+        "SATURDAY",
+      ];
+
+      // Create unique Brand + Process combinations from allocations
+      const workingRuleMap = new Map();
+
+      for (const allocationData of allocationSeed) {
+        const brand = brandMap[allocationData.brandName];
+
+        if (!brand) {
+          throw new Error(`Brand ${allocationData.brandName} not found.`);
+        }
+
+        for (const processName of allocationData.processNames) {
+          const process = processMap[processName];
+
+          if (!process) {
+            throw new Error(`Process ${processName} not found.`);
+          }
+
+          const key = `${allocationData.brandName}_${processName}`;
+
+          if (!workingRuleMap.has(key)) {
+            workingRuleMap.set(key, {
+              brandId: brand._id,
+              processId: process._id,
+              operatingDays,
+              operatesOnPublicHolidays: false,
+              minimumStaffing: operatingDays.map((day) => ({
+                day,
+                requiredEmployees: 1,
+              })),
+              status: "ACTIVE",
+            });
+          }
+        }
+      }
+
+      // Upsert working rules
+      for (const ruleData of workingRuleMap.values()) {
+        await WorkingRule.findOneAndUpdate(
+          {
+            brandId: ruleData.brandId,
+            processId: ruleData.processId,
+          },
+          {
+            $set: ruleData,
+          },
+          {
+            upsert: true,
+            returnDocument: "after",
+            runValidators: true,
+            session,
+          },
+        );
+      }
+
+      console.log(`${workingRuleMap.size} working rules seeded.`);
+
+      // 3. Seed Employee Work Patterns
+      for (const patternData of employeeWorkPatternSeed) {
+        const employee = employeeMap[patternData.employeeCode];
+
+        if (!employee) {
+          throw new Error(
+            `Employee ${patternData.employeeCode} not found for work pattern.`,
+          );
+        }
+
+        const { employeeCode, ...workPatternData } = patternData;
+
+        await EmployeeWorkPattern.findOneAndUpdate(
+          { employeeId: employee._id },
+          {
+            $set: workPatternData,
+          },
+          {
+            upsert: true,
+            returnDocument: "after",
+            runValidators: true,
+            session,
+          },
+        );
+      }
+
+      console.log(
+        `${employeeWorkPatternSeed.length} employee work patterns seeded.`,
+      );
     });
 
     console.log("Complete sample dataset seeded successfully.");

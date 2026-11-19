@@ -74,13 +74,20 @@ const workingRuleSchema = new mongoose.Schema(
 workingRuleSchema.path("minimumStaffing").validate(function (staffing) {
   const staffingDays = staffing.map((item) => item.day);
 
-  // Check for duplicate staffing days
   if (new Set(staffingDays).size !== staffingDays.length) {
     return false;
   }
 
-  // Check that staffing days are operating days
-  return staffingDays.every((day) => this.operatingDays.includes(day));
+  const operatingDays =
+    this instanceof mongoose.Document
+      ? this.operatingDays
+      : this.get("operatingDays");
+
+  if (!operatingDays) {
+    return true;
+  }
+
+  return staffingDays.every((day) => operatingDays.includes(day));
 }, "Staffing days must be unique and must belong to the operating days.");
 
 // One working rule per brand-process combination

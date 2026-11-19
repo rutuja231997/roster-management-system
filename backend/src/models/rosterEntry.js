@@ -54,6 +54,20 @@ const rosterEntrySchema = new mongoose.Schema(
   },
 );
 
+// Prevent duplicate employee assignments
+rosterEntrySchema.index(
+  {
+    rosterId: 1,
+    date: 1,
+    employeeId: 1,
+    brandId: 1,
+    processId: 1,
+  },
+  {
+    unique: true,
+  },
+);
+
 // useful for finding assignments by roster and date
 rosterEntrySchema.index({
   rosterId: 1,

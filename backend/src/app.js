@@ -15,6 +15,7 @@ const brandRouter = require("./routes/brand.route");
 const allocationRouter = require("./routes/allocation.route");
 const processRouter = require("./routes/process.route");
 const workingRuleRouter = require("./routes/workingRule.route");
+const rosterRouter = require("./routes/roster.route");
 
 // instance of express
 const app = express();
@@ -52,6 +53,7 @@ app.use("/api", brandRouter);
 app.use("/api", allocationRouter);
 app.use("/api", processRouter);
 app.use("/api", workingRuleRouter);
+app.use("/api", rosterRouter);
 
 app.use((req, res) => {
   res.send("server is listening");
