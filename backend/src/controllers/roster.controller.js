@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const Roster = require("../models/roster");
 const RosterEntry = require("../models/rosterEntry");
+const RosterConflict = require("../models/rosterConflict");
 
 const { generateMonthlyRoster } = require("../services/roster.service");
 
@@ -9,14 +10,14 @@ const generateMonthlyRosterController = async (req, res) => {
   const { month, year } = req.body;
 
   // Validate month
-  if (!month || month < 1 || month > 12 || !Number.isInteger(month)) {
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
     return res.status(400).json({
       message: "Month must be a number between 1 and 12.",
     });
   }
 
   // Validate year
-  if (!year || !Number.isInteger(year) || year < 2020) {
+  if (!Number.isInteger(year) || year < 2020) {
     return res.status(400).json({
       message: "Please provide a valid year.",
     });
@@ -43,30 +44,34 @@ const generateMonthlyRosterController = async (req, res) => {
       });
     }
 
-    // Generate monthly roster
+    // Generate monthly roster data
     const monthlyRoster = await generateMonthlyRoster(month, year);
 
     // Start MongoDB transaction
     session = await mongoose.startSession();
 
+    let createdRosterId;
+
     await session.withTransaction(async () => {
-      // Create Roster document
+      // 1. Create Roster document
       const [roster] = await Roster.create(
         [
           {
             name: `${new Date(year, month - 1).toLocaleString("en-US", {
               month: "long",
             })} ${year} Roster`,
+
             periodStart,
             periodEnd,
             status: "DRAFT",
             generatedAt: new Date(),
+            totalConflicts: monthlyRoster.totalConflicts,
           },
         ],
         { session },
       );
 
-      // Prepare roster entries
+      // 2. Prepare roster entries
       const rosterEntries = monthlyRoster.assignments.map((assignment) => ({
         rosterId: roster._id,
         employeeId: assignment.employeeId,
@@ -77,32 +82,50 @@ const generateMonthlyRosterController = async (req, res) => {
         source: "AUTO",
       }));
 
-      // Save all assignments
+      // 3. Save roster entries
       if (rosterEntries.length > 0) {
         await RosterEntry.insertMany(rosterEntries, {
           session,
         });
       }
 
-      // Store roster ID for response
-      req.generatedRosterId = roster._id;
+      // 4. Prepare roster conflicts
+      const rosterConflicts = monthlyRoster.conflicts.map((conflict) => ({
+        rosterId: roster._id,
+        employeeId: conflict.employeeId ?? null,
+        brandId: conflict.brandId,
+        processId: conflict.processId,
+        date: conflict.date,
+        type: conflict.type,
+        message: conflict.message,
+
+        requiredEmployees: conflict.requiredEmployees ?? 0,
+        availableEmployees: conflict.availableEmployees ?? 0,
+        shortage: conflict.shortage ?? 0,
+
+        allocatedEmployeeCodes: conflict.allocatedEmployeeCodes ?? [],
+
+        eligibleEmployeeCodes: conflict.eligibleEmployeeCodes ?? [],
+
+        unavailableEmployeeDetails: conflict.unavailableEmployeeDetails ?? [],
+
+        status: "OPEN",
+      }));
+
+      // 5. Save roster conflicts
+      if (rosterConflicts.length > 0) {
+        await RosterConflict.insertMany(rosterConflicts, {
+          session,
+        });
+      }
+
+      createdRosterId = roster._id;
     });
 
-    // return res.status(201).json({
-    //   message: "Monthly roster generated successfully.",
-    //   rosterId: req.generatedRosterId,
-    //   month,
-    //   year,
-    //   totalDays: monthlyRoster.totalDays,
-    //   totalAssignments: monthlyRoster.totalAssignments,
-    //   totalConflicts: monthlyRoster.totalConflicts,
-    //   dailySummary: monthlyRoster.dailySummary,
-    //   conflicts: monthlyRoster.conflicts,
-    // });
-
+    // 6. Send response after transaction succeeds
     return res.status(201).json({
       message: "Monthly roster generated successfully.",
-      rosterId: req.generatedRosterId,
+      rosterId: createdRosterId,
       month,
       year,
       totalDays: monthlyRoster.totalDays,
@@ -127,6 +150,12 @@ const getRosterByIdController = async (req, res) => {
   try {
     const { id } = req.params;
     const { date } = req.query;
+
+    // Pagination parameters
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
+
+    const skip = (page - 1) * limit;
 
     // Validate roster ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -178,23 +207,42 @@ const getRosterByIdController = async (req, res) => {
       };
     }
 
-    // Fetch roster assignments
+    // Count total matching assignments
+    const totalRecords = await RosterEntry.countDocuments(query);
+
+    const totalPages = Math.ceil(totalRecords / limit);
+
+    // Fetch paginated assignments
     const assignments = await RosterEntry.find(query)
       .populate("employeeId", "firstName lastName employeeCode")
       .populate("brandId", "name")
       .populate("processId", "name")
-      .sort({ date: 1 })
+      .sort({ date: 1, employeeId: 1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
     return res.status(200).json({
       message: "Roster fetched successfully.",
       roster,
+
       summary: {
-        totalAssignments: assignments.length,
+        totalAssignments: totalRecords,
         totalDays: date
           ? 1
           : Math.round((roster.periodEnd - roster.periodStart) / 86400000) + 1,
+        totalConflicts: roster.totalConflicts ?? 0,
       },
+
+      pagination: {
+        currentPage: page,
+        limit,
+        totalRecords,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+
       assignments,
     });
   } catch (error) {
@@ -207,7 +255,25 @@ const getRosterByIdController = async (req, res) => {
   }
 };
 
+const getAllRosters = async (req, res) => {
+  try {
+    const rosters = await Roster.find()
+      .sort({ generatedAt: -1 })
+      .select("name periodStart periodEnd status generatedAt");
+
+    return res.status(200).json({
+      message: "Rosters fetched successfully.",
+      rosters,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch rosters.",
+    });
+  }
+};
+
 module.exports = {
   generateMonthlyRosterController,
   getRosterByIdController,
+  getAllRosters,
 };

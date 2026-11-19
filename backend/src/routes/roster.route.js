@@ -14,4 +14,6 @@ rosterRouter.get(
   rosterController.getRosterByIdController,
 );
 
+rosterRouter.get("/get-rosters", rosterController.getAllRosters);
+
 module.exports = rosterRouter;

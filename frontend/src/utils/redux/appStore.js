@@ -6,6 +6,7 @@ import brandReducer from "./slices/brandSlice";
 import processReducer from "./slices/processSlice";
 import allocationReducer from "./slices/allocationSlice";
 import workingRuleReducer from "./slices/workingRuleSlice";
+import monthlyRosterReducer from "./slices/monthlyRosterSlice";
 
 const appStore = configureStore({
   reducer: {
@@ -15,6 +16,7 @@ const appStore = configureStore({
     processes: processReducer,
     allocations: allocationReducer,
     workingRules: workingRuleReducer,
+    monthlyRoster: monthlyRosterReducer,
   },
 });
 

@@ -106,7 +106,12 @@ const generateMonthlyRoster = async (month, year) => {
   // 4. Aggregate assignments and conflicts
   const allAssignments = dailyResults.flatMap((day) => day.assignments);
 
-  const allConflicts = dailyResults.flatMap((day) => day.conflicts);
+  const allConflicts = dailyResults.flatMap((day) =>
+    day.conflicts.map((conflict) => ({
+      ...conflict,
+      date: day.date,
+    })),
+  );
 
   // 5. Create a summary for each day
   const dailySummary = dailyResults.map((day) => ({

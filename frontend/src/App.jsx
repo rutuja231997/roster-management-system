@@ -9,6 +9,7 @@ import Brands from "./pages/Brands";
 import Processes from "./pages/Processes";
 import Allocations from "./pages/Allocations";
 import WorkingRules from "./pages/WorkingRules";
+import Roster from "./pages/Roster";
 
 import { Provider } from "react-redux";
 import appStore from "./utils/redux/appStore";
@@ -31,7 +32,7 @@ function App() {
             {/* Add these pages when implemented */}
             <Route path="/working-rules" element={<WorkingRules />} />
             {/* <Route path="/availability" element={<Availability />} /> */}
-            {/* <Route path="/rosters" element={<Rosters />} /> */}
+            <Route path="/rosters" element={<Roster />} />
           </Route>
         </Routes>
       </BrowserRouter>
