@@ -5,6 +5,10 @@ const RosterEntry = require("../models/rosterEntry");
 const RosterConflict = require("../models/rosterConflict");
 
 const { generateMonthlyRoster } = require("../services/roster.service");
+const { validateRoster } = require("../services/rosterValidation.service");
+const {
+  syncRosterConflicts,
+} = require("../services/rosterConflictSync.service");
 
 const generateMonthlyRosterController = async (req, res) => {
   const { month, year } = req.body;
@@ -222,6 +226,15 @@ const getRosterByIdController = async (req, res) => {
       .limit(limit)
       .lean();
 
+    const totalOpenConflicts = await RosterConflict.countDocuments({
+      rosterId: roster._id,
+      status: "OPEN",
+    });
+
+    const rosterEntries = await RosterEntry.countDocuments({
+      rosterId: roster._id,
+    });
+
     return res.status(200).json({
       message: "Roster fetched successfully.",
       roster,
@@ -231,7 +244,8 @@ const getRosterByIdController = async (req, res) => {
         totalDays: date
           ? 1
           : Math.round((roster.periodEnd - roster.periodStart) / 86400000) + 1,
-        totalConflicts: roster.totalConflicts ?? 0,
+        totalConflicts: totalOpenConflicts ?? 0,
+        rosterEntries: rosterEntries,
       },
 
       pagination: {
@@ -272,8 +286,117 @@ const getAllRosters = async (req, res) => {
   }
 };
 
+const publishRoster = async (req, res) => {
+  try {
+    const { rosterId } = req.params;
+
+    // 1. Find the roster
+    const roster = await Roster.findById(rosterId);
+
+    if (!mongoose.Types.ObjectId.isValid(rosterId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid roster ID.",
+      });
+    }
+
+    if (!roster) {
+      return res.status(404).json({
+        success: false,
+        message: "Roster not found.",
+      });
+    }
+
+    // 2. Prevent publishing an already published roster
+    if (roster.status === "PUBLISHED") {
+      return res.status(400).json({
+        success: false,
+        message: "Roster is already published.",
+      });
+    }
+
+    if (roster.status === "ARCHIVED") {
+      return res.status(400).json({
+        success: false,
+        message: "Archived rosters cannot be published.",
+      });
+    }
+
+    // 3. Validate the latest roster entries
+    const validationReport = await validateRoster(rosterId);
+
+    // 4. Synchronize detected conflicts with the database
+    await syncRosterConflicts(rosterId, validationReport.conflicts);
+
+    // 5. Check unresolved HIGH-severity conflicts
+    const blockingConflicts = await RosterConflict.countDocuments({
+      rosterId,
+      status: "OPEN",
+      severity: "HIGH",
+    });
+
+    if (blockingConflicts > 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot publish roster. Resolve all HIGH-severity conflicts first.",
+        data: {
+          blockingConflicts,
+        },
+      });
+    }
+
+    // 6. Publish the roster
+    const publishedRoster = await Roster.findOneAndUpdate(
+      {
+        _id: rosterId,
+        status: "DRAFT",
+      },
+      {
+        $set: {
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!publishedRoster) {
+      return res.status(409).json({
+        success: false,
+        message: "Roster status changed. Please refresh and try again.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Roster published successfully.",
+      data: {
+        roster: publishedRoster,
+        remainingWarnings: await RosterConflict.countDocuments({
+          rosterId,
+          status: "OPEN",
+          severity: "LOW",
+        }),
+      },
+    });
+  } catch (error) {
+    console.error("Publish roster error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to publish roster.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   generateMonthlyRosterController,
   getRosterByIdController,
   getAllRosters,
+  publishRoster,
 };

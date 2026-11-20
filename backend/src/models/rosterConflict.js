@@ -37,6 +37,7 @@ const rosterConflictSchema = new mongoose.Schema(
         "INSUFFICIENT_STAFFING",
         "EMPLOYEE_UNAVAILABLE",
         "WEEKLY_OFF",
+        "PREFERENCE_OVERRIDDEN",
         "PUBLIC_HOLIDAY",
         "MISSING_STAFFING_RULE",
         "OVERLAPPING_ASSIGNMENT",
@@ -111,6 +112,23 @@ const rosterConflictSchema = new mongoose.Schema(
     },
 
     resolvedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Manager escalation
+    requiresManagerReview: {
+      type: Boolean,
+      default: false,
+    },
+
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      default: null,
+    },
+
+    escalatedAt: {
       type: Date,
       default: null,
     },

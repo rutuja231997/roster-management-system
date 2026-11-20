@@ -31,6 +31,20 @@ const rosterEntrySchema = new mongoose.Schema(
       required: true,
     },
 
+    // New: Shift start time in 24-hour HH:mm format
+    shiftStart: {
+      type: String,
+      default: null,
+      match: /^([01]\d|2[0-3]):([0-5]\d)$/,
+    },
+
+    // New: Shift end time in 24-hour HH:mm format
+    shiftEnd: {
+      type: String,
+      default: null,
+      match: /^([01]\d|2[0-3]):([0-5]\d)$/,
+    },
+
     status: {
       type: String,
       enum: ["SCHEDULED", "CANCELLED"],

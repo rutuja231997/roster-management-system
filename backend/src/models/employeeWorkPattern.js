@@ -23,6 +23,36 @@ const employeeWorkPatternSchema = new mongoose.Schema(
       default: ["SUNDAY"],
     },
 
+    // New: Mandatory weekly offs
+    mandatoryWeeklyOffDays: {
+      type: [String],
+      enum: [
+        "MONDAY",
+        "TUESDAY",
+        "WEDNESDAY",
+        "THURSDAY",
+        "FRIDAY",
+        "SATURDAY",
+        "SUNDAY",
+      ],
+      default: [],
+    },
+
+    // New: Preferred weekly offs (can be overridden)
+    preferredWeeklyOffDays: {
+      type: [String],
+      enum: [
+        "MONDAY",
+        "TUESDAY",
+        "WEDNESDAY",
+        "THURSDAY",
+        "FRIDAY",
+        "SATURDAY",
+        "SUNDAY",
+      ],
+      default: [],
+    },
+
     workingDays: {
       type: [String],
       enum: [
@@ -64,6 +94,19 @@ const employeeWorkPatternSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+employeeWorkPatternSchema.pre("validate", function () {
+  const overlap = this.mandatoryWeeklyOffDays.filter((day) =>
+    this.preferredWeeklyOffDays.includes(day),
+  );
+
+  if (overlap.length > 0) {
+    this.invalidate(
+      "preferredWeeklyOffDays",
+      `A day cannot be both mandatory and preferred weekly off: ${overlap.join(", ")}`,
+    );
+  }
+});
 
 const EmployeeWorkPattern = mongoose.model(
   "EmployeeWorkPattern",

@@ -16,4 +16,6 @@ rosterRouter.get(
 
 rosterRouter.get("/get-rosters", rosterController.getAllRosters);
 
+rosterRouter.post("/:rosterId/publish", rosterController.publishRoster);
+
 module.exports = rosterRouter;

@@ -16,6 +16,9 @@ const allocationRouter = require("./routes/allocation.route");
 const processRouter = require("./routes/process.route");
 const workingRuleRouter = require("./routes/workingRule.route");
 const rosterRouter = require("./routes/roster.route");
+const rosterConflictRouter = require("./routes/rosterConflict.route");
+const availabilityRouter = require("./routes/availability.route");
+const rosterEntryRouter = require("./routes/rosterEntry.route");
 
 // instance of express
 const app = express();
@@ -54,6 +57,9 @@ app.use("/api", allocationRouter);
 app.use("/api", processRouter);
 app.use("/api", workingRuleRouter);
 app.use("/api", rosterRouter);
+app.use("/api", rosterConflictRouter);
+app.use("/api", rosterEntryRouter);
+app.use("/api", availabilityRouter);
 
 app.use((req, res) => {
   res.send("server is listening");
