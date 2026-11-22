@@ -7,32 +7,63 @@ import {
   clearMonthlyRosterError,
 } from "../utils/redux/slices/monthlyRosterSlice";
 
-import { CalendarDays, ClipboardList, AlertTriangle } from "lucide-react";
+import { getAllPods } from "../utils/redux/slices/podSlice.js";
+import { getAllProcesses } from "../utils/redux/slices/processSlice.js";
+import { getAllBrands } from "../utils/redux/slices/brandSlice.js";
+import { getAllEmployees } from "../utils/redux/slices/employeeSlice.js";
 
-import SummaryCard from "../components/common/SummaryCard";
+import RosterSummaryCards from "../components/roster/RosterSummaryCard";
+
+import RosterEntitySelector from "../components/roster/RosterEntitySelector.jsx";
+import RosterViewSelector from "../components/roster/RosterViewSelector";
+
+import PodRosterView from "../components/roster/views/PodRosterView.jsx";
+import EmployeeRosterView from "../components/roster/views/EmployeeRosterView.jsx";
+import BrandRosterView from "../components/roster/views/BrandRosterView.jsx";
+import ProcessRosterView from "../components/roster/views/ProcessRosterView.jsx";
+import CompanyRosterView from "../components/roster/views/CompanyRosterView.jsx";
 
 const Roster = () => {
   const dispatch = useDispatch();
+
+  // ======================================================
+  // ROSTER STATE
+  // ======================================================
 
   const {
     roster,
     rosters,
     summary,
-    assignments,
-    pagination,
-    loading,
     rostersLoading,
-    error,
     generating,
     generationError,
   } = useSelector((state) => state.monthlyRoster);
 
+  // ======================================================
+  // ENTITY DATA
+  // ======================================================
+
+  const pods = useSelector((state) => state.pods?.pods || []);
+
+  const brands = useSelector((state) => state.brands?.brands || []);
+
+  const processes = useSelector((state) => state.processes?.processes || []);
+
+  const employees = useSelector((state) => state.employees?.employees || []);
+
+  // ======================================================
+  // LOCAL STATE
+  // ======================================================
+
   const currentDate = new Date();
 
   const [month, setMonth] = useState(currentDate.getMonth() + 1);
+
   const [year, setYear] = useState(currentDate.getFullYear());
-  const [selectedDate, setSelectedDate] = useState("");
-  const [limit, setLimit] = useState(10);
+
+  const [selectedView, setSelectedView] = useState("company");
+
+  const [selectedEntityId, setSelectedEntityId] = useState("");
 
   const months = [
     "January",
@@ -49,25 +80,38 @@ const Roster = () => {
     "December",
   ];
 
-  // Fetch all existing rosters when the page loads
+  // ======================================================
+  // FETCH INITIAL DATA
+  // ======================================================
+
   useEffect(() => {
     dispatch(getAllRosters());
+    dispatch(getAllPods());
+    dispatch(getAllBrands());
+    dispatch(getAllProcesses());
+    dispatch(getAllEmployees());
   }, [dispatch]);
 
-  // Automatically load the latest roster if none is selected
+  // ======================================================
+  // AUTOMATICALLY LOAD LATEST ROSTER
+  // ======================================================
+
   useEffect(() => {
     if (rosters.length > 0 && !roster?._id) {
       dispatch(
         getMonthlyRoster({
           id: rosters[0]._id,
           page: 1,
-          limit,
+          limit: 10,
         }),
       );
     }
-  }, [rosters, roster?._id, dispatch, limit]);
+  }, [rosters, roster?._id, dispatch]);
 
-  // Generate a new monthly roster
+  // ======================================================
+  // GENERATE MONTHLY ROSTER
+  // ======================================================
+
   const handleGenerateRoster = async () => {
     dispatch(clearMonthlyRosterError());
 
@@ -79,119 +123,83 @@ const Roster = () => {
     );
 
     if (generateMonthlyRoster.fulfilled.match(result)) {
-      setSelectedDate("");
+      setSelectedView("company");
+      setSelectedEntityId("");
 
-      // Refresh existing roster list
+      // Refresh roster list
       await dispatch(getAllRosters());
 
-      // Fetch newly generated roster
+      // Load newly generated roster
       await dispatch(
         getMonthlyRoster({
           id: result.payload.rosterId,
           page: 1,
-          limit,
+          limit: 10,
         }),
       );
     }
   };
 
-  // Select an existing roster
+  // ======================================================
+  // SELECT EXISTING ROSTER
+  // ======================================================
+
   const handleRosterChange = (id) => {
-    setSelectedDate("");
+    setSelectedView("company");
+    setSelectedEntityId("");
 
-    if (id) {
-      dispatch(
-        getMonthlyRoster({
-          id,
-          page: 1,
-          limit,
-        }),
-      );
-    }
-  };
-
-  // Filter assignments by date
-  const handleDateFilter = (value) => {
-    setSelectedDate(value);
-
-    if (roster?._id) {
-      dispatch(
-        getMonthlyRoster({
-          id: roster._id,
-          date: value || undefined,
-          page: 1,
-          limit,
-        }),
-      );
-    }
-  };
-
-  // Change pagination page
-  const handlePageChange = (page) => {
-    if (!roster?._id || page < 1) return;
+    if (!id) return;
 
     dispatch(
       getMonthlyRoster({
-        id: roster._id,
-        date: selectedDate || undefined,
-        page,
-        limit,
+        id,
+        page: 1,
+        limit: 10,
       }),
     );
   };
 
-  // Change records per page
-  const handleLimitChange = (value) => {
-    const newLimit = Number(value);
+  // ======================================================
+  // CHANGE ROSTER VIEW
+  // ======================================================
 
-    setLimit(newLimit);
-
-    if (roster?._id) {
-      dispatch(
-        getMonthlyRoster({
-          id: roster._id,
-          date: selectedDate || undefined,
-          page: 1,
-          limit: newLimit,
-        }),
-      );
-    }
+  const handleViewChange = (view) => {
+    setSelectedView(view);
+    setSelectedEntityId("");
   };
 
-  const formatDate = (date) =>
-    new Date(date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
+  // ======================================================
+  // SELECT ENTITY
+  // ======================================================
 
-  // Display selected roster's month and year
-  const rosterPeriod = roster?.periodStart
-    ? new Date(roster.periodStart).toLocaleDateString("en-IN", {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      })
-    : roster?.month
-      ? `${months[roster.month - 1]} ${roster.year}`
-      : "Select a roster";
+  const handleEntitySelect = (entityId) => {
+    setSelectedEntityId(entityId);
+  };
 
-  // Calculate displayed record range
-  const startRecord =
-    pagination?.totalRecords > 0
-      ? (pagination.currentPage - 1) * pagination.limit + 1
-      : 0;
+  // ======================================================
+  // CURRENT ENTITY LIST
+  // ======================================================
 
-  const endRecord = Math.min(
-    pagination?.currentPage * pagination?.limit || 0,
-    pagination?.totalRecords || 0,
-  );
+  const currentEntities =
+    selectedView === "pod"
+      ? pods
+      : selectedView === "brand"
+        ? brands
+        : selectedView === "process"
+          ? processes
+          : selectedView === "employee"
+            ? employees
+            : [];
+
+  // ======================================================
+  // RENDER
+  // ======================================================
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        {/* Page Header */}
+        {/* PAGE HEADER */}
+
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h1 className="text-2xl font-semibold text-[#0F172A]">
@@ -212,14 +220,16 @@ const Roster = () => {
           </button>
         </div>
 
-        {/* Roster Period and Existing Rosters */}
+        {/* ROSTER PERIOD */}
+
         <div className="rounded-xl border border-[#E2E8F0] bg-white p-5">
           <h2 className="mb-4 text-base font-semibold text-[#0F172A]">
             Roster Period
           </h2>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* Month */}
+            {/* MONTH */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-[#334155]">
                 Month
@@ -238,7 +248,8 @@ const Roster = () => {
               </select>
             </div>
 
-            {/* Year */}
+            {/* YEAR */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-[#334155]">
                 Year
@@ -253,7 +264,8 @@ const Roster = () => {
               />
             </div>
 
-            {/* Existing Rosters */}
+            {/* EXISTING ROSTERS */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-[#334155]">
                 Existing Rosters
@@ -279,225 +291,101 @@ const Roster = () => {
           </div>
         </div>
 
-        {/* Generation Error */}
+        {/* GENERATION ERROR */}
+
         {generationError && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {generationError}
           </div>
         )}
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <SummaryCard
-            title="Total Days"
-            count={summary?.totalDays ?? 0}
-            icon={CalendarDays}
-            color="bg-blue-50 text-blue-600"
-          />
+        {/* ROSTER VIEW SELECTOR */}
 
-          <SummaryCard
-            title="Total Assignments"
-            count={summary?.totalAssignments ?? 0}
-            icon={ClipboardList}
-            color="bg-green-50 text-green-600"
-          />
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-5">
+          <h2 className="mb-4 text-base font-semibold text-[#0F172A]">
+            Roster View
+          </h2>
 
-          <SummaryCard
-            title="Total Conflicts"
-            count={summary?.totalConflicts ?? 0}
-            icon={AlertTriangle}
-            color="bg-red-50 text-red-600"
+          <RosterViewSelector
+            selectedView={selectedView}
+            onViewChange={handleViewChange}
           />
         </div>
 
-        {/* Roster Assignments */}
-        <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
-          {/* Table Header */}
-          <div className="flex flex-col justify-between gap-4 border-b border-[#E2E8F0] p-5 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-base font-semibold text-[#0F172A]">
-                Roster Assignments
-              </h2>
+        {/* ENTITY SELECTOR */}
 
-              <p className="mt-1 text-sm text-[#64748B]">
-                {roster
-                  ? rosterPeriod
-                  : "Select an existing roster or generate a new one."}
-              </p>
-            </div>
+        {selectedView !== "company" && (
+          <RosterEntitySelector
+            view={selectedView}
+            entities={currentEntities}
+            selectedEntityId={selectedEntityId}
+            onSelect={handleEntitySelect}
+          />
+        )}
 
-            {/* Date Filter */}
-            <div className="w-full sm:w-52">
-              <input
-                type="date"
-                value={selectedDate}
-                min={
-                  roster?.periodStart
-                    ? roster.periodStart.slice(0, 10)
-                    : undefined
-                }
-                max={
-                  roster?.periodEnd ? roster.periodEnd.slice(0, 10) : undefined
-                }
-                disabled={!roster?._id}
-                onChange={(e) => handleDateFilter(e.target.value)}
-                className="w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm text-[#334155] outline-none focus:border-[#2563EB] disabled:cursor-not-allowed disabled:bg-slate-50"
-              />
-            </div>
-          </div>
+        {/* COMPANY-WIDE SUMMARY */}
 
-          {/* Fetch Error */}
-          {error && (
-            <div className="m-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+        {selectedView === "company" && <RosterSummaryCards summary={summary} />}
 
-          {/* Loading */}
-          {loading ? (
-            <div className="p-10 text-center text-sm text-[#64748B]">
-              Loading roster assignments...
-            </div>
-          ) : assignments.length === 0 ? (
-            <div className="p-10 text-center">
-              <p className="text-sm font-medium text-[#334155]">
-                No roster assignments found.
-              </p>
+        {/* COMPANY-WIDE VIEW */}
 
-              <p className="mt-1 text-sm text-[#94A3B8]">
-                {roster
-                  ? "There are no assignments for this selection."
-                  : "Select an existing roster or generate a new one."}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-187.5 text-left text-sm">
-                <thead className="bg-[#F8FAFC] text-xs uppercase text-[#64748B]">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">Date</th>
-                    <th className="px-5 py-3 font-medium">Employee</th>
-                    <th className="px-5 py-3 font-medium">Employee Code</th>
-                    <th className="px-5 py-3 font-medium">Brand</th>
-                    <th className="px-5 py-3 font-medium">Process</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                  </tr>
-                </thead>
+        {selectedView === "company" && roster?._id && (
+          <CompanyRosterView
+            rosterId={roster._id}
+            roster={roster}
+            employees={employees}
+            brands={brands}
+            processes={processes}
+          />
+        )}
 
-                <tbody className="divide-y divide-[#E2E8F0]">
-                  {assignments.map((assignment) => (
-                    <tr
-                      key={assignment._id}
-                      className="transition hover:bg-[#F8FAFC]"
-                    >
-                      <td className="whitespace-nowrap px-5 py-4 text-[#475569]">
-                        {formatDate(assignment.date)}
-                      </td>
+        {/* POD-WISE VIEW */}
 
-                      <td className="px-5 py-4 font-medium text-[#0F172A]">
-                        {assignment.employeeId?.firstName}{" "}
-                        {assignment.employeeId?.lastName}
-                      </td>
+        {selectedView === "pod" && roster?._id && selectedEntityId && (
+          <PodRosterView
+            rosterId={roster._id}
+            podId={selectedEntityId}
+            employees={employees}
+            brands={brands}
+            processes={processes}
+          />
+        )}
 
-                      <td className="px-5 py-4 text-[#64748B]">
-                        {assignment.employeeId?.employeeCode}
-                      </td>
+        {/* BRAND-WISE VIEW */}
 
-                      <td className="px-5 py-4 text-[#334155]">
-                        {assignment.brandId?.name}
-                      </td>
+        {selectedView === "brand" && roster?._id && selectedEntityId && (
+          <BrandRosterView
+            rosterId={roster._id}
+            brandId={selectedEntityId}
+            employees={employees}
+            brands={brands}
+            processes={processes}
+          />
+        )}
 
-                      <td className="px-5 py-4 text-[#334155]">
-                        {assignment.processId?.name}
-                      </td>
+        {/* PROCESS-WISE VIEW */}
 
-                      <td className="px-5 py-4">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            assignment.status === "SCHEDULED"
-                              ? "bg-green-50 text-green-700"
-                              : "bg-red-50 text-red-700"
-                          }`}
-                        >
-                          {assignment.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        {selectedView === "process" && roster?._id && selectedEntityId && (
+          <ProcessRosterView
+            rosterId={roster._id}
+            processId={selectedEntityId}
+            employees={employees}
+            brands={brands}
+            processes={processes}
+          />
+        )}
 
-          {/* Pagination */}
-          {!loading && pagination?.totalRecords > 0 && (
-            <div className="flex flex-col justify-between gap-4 border-t border-[#E2E8F0] p-4 sm:flex-row sm:items-center">
-              {/* Records Information */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                <p className="text-sm text-[#64748B]">
-                  Showing{" "}
-                  <span className="font-medium text-[#0F172A]">
-                    {startRecord}
-                  </span>{" "}
-                  to{" "}
-                  <span className="font-medium text-[#0F172A]">
-                    {endRecord}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-medium text-[#0F172A]">
-                    {pagination.totalRecords}
-                  </span>{" "}
-                  assignments
-                </p>
+        {/* EMPLOYEE-WISE VIEW */}
 
-                {/* Page Size */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-[#64748B]">Rows:</label>
-
-                  <select
-                    value={limit}
-                    onChange={(e) => handleLimitChange(e.target.value)}
-                    className="rounded-lg border border-[#E2E8F0] bg-white px-2 py-1.5 text-sm text-[#334155] outline-none focus:border-[#2563EB]"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Navigation */}
-              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={!pagination.hasPreviousPage || loading}
-                  className="rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-medium text-[#334155] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Previous
-                </button>
-
-                <span className="whitespace-nowrap text-sm text-[#64748B]">
-                  Page{" "}
-                  <span className="font-medium text-[#0F172A]">
-                    {pagination.currentPage}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-medium text-[#0F172A]">
-                    {pagination.totalPages}
-                  </span>
-                </span>
-
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={!pagination.hasNextPage || loading}
-                  className="rounded-lg border border-[#E2E8F0] px-4 py-2 text-sm font-medium text-[#334155] transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {selectedView === "employee" && roster?._id && selectedEntityId && (
+          <EmployeeRosterView
+            rosterId={roster._id}
+            employeeId={selectedEntityId}
+            employees={employees}
+            brands={brands}
+            processes={processes}
+          />
+        )}
       </div>
     </div>
   );
