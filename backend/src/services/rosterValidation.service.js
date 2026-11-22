@@ -660,6 +660,37 @@ const validateRoster = async (rosterId) => {
     }
   }
 
+  console.log("========== VALIDATION RESULTS ==========");
+
+  console.log("Total detected conflicts:", conflicts.length);
+
+  const conflictBreakdown = conflicts.reduce((acc, conflict) => {
+    acc[conflict.type] = (acc[conflict.type] || 0) + 1;
+    return acc;
+  }, {});
+
+  console.log("Conflict breakdown:", conflictBreakdown);
+
+  // Check for duplicate conflicts generated during validation
+  const conflictKeys = conflicts.map((conflict) =>
+    [
+      conflict.brandId?.toString() || "null",
+      conflict.processId?.toString() || "null",
+      new Date(conflict.date).toISOString().slice(0, 10),
+      conflict.type,
+      conflict.employeeId?.toString() || "null",
+    ].join("|"),
+  );
+
+  const duplicateKeys = conflictKeys.filter(
+    (key, index) => conflictKeys.indexOf(key) !== index,
+  );
+
+  console.log("Duplicate conflict keys:", duplicateKeys);
+  console.log("Duplicate conflict count:", duplicateKeys.length);
+
+  console.log("=======================================");
+
   // 7. Return validation report
   return {
     rosterId,

@@ -1,6 +1,9 @@
-const SummaryCard = ({ title, count, icon: Icon, color }) => {
+const SummaryCard = ({ title, count, icon: Icon, color, onClick }) => {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div
+      onClick={onClick}
+      className="rounded-lg border border-slate-200 bg-white p-4"
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-slate-500">{title}</p>

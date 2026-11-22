@@ -325,7 +325,9 @@ const Roster = () => {
 
         {/* COMPANY-WIDE SUMMARY */}
 
-        {selectedView === "company" && <RosterSummaryCards summary={summary} />}
+        {selectedView === "company" && (
+          <RosterSummaryCards summary={summary} rosterId={roster?._id} />
+        )}
 
         {/* COMPANY-WIDE VIEW */}
 

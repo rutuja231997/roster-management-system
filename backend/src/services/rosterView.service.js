@@ -143,6 +143,7 @@ const getBrandRoster = async (rosterId, brandId, page = 1, limit = 5) => {
   // Fetch only assignments for the current page
   const assignments = await RosterEntry.find(assignmentQuery)
     .populate("employeeId", "firstName lastName employeeCode podId")
+    .populate("brandId", "name")
     .populate("processId", "name")
     .sort({ date: 1, _id: 1 })
     .skip(skip)
@@ -325,6 +326,7 @@ const getProcessRoster = async (rosterId, processId, page = 1, limit = 5) => {
   const assignments = await RosterEntry.find(assignmentQuery)
     .populate("employeeId", "firstName lastName employeeCode podId")
     .populate("brandId", "name")
+    .populate("processId", "name")
     .sort({ date: 1, _id: 1 })
     .skip(skip)
     .limit(limit)
@@ -482,172 +484,51 @@ const getProcessRoster = async (rosterId, processId, page = 1, limit = 5) => {
 // --------------------------------------------------
 
 const getEmployeeRoster = async (rosterId, employeeId, page = 1, limit = 5) => {
-  const roster = await getRoster(rosterId);
-
-  const employee = await Employee.findById(employeeId)
-    .populate("podId", "name")
-    .lean();
-
-  if (!employee) {
-    throw new Error("Employee not found.");
-  }
-
-  const assignmentQuery = {
-    rosterId: roster._id,
-    employeeId: employee._id,
-  };
-
-  // Total assignments for this employee
-  const totalRecords = await RosterEntry.countDocuments(assignmentQuery);
-
-  const totalPages = Math.ceil(totalRecords / limit);
   const skip = (page - 1) * limit;
 
-  // Fetch assignments for the current page only
-  const assignments = await RosterEntry.find(assignmentQuery)
+  const query = {
+    rosterId,
+    employeeId,
+  };
+
+  // Fetch assignments with populated references
+  const assignments = await RosterEntry.find(query)
+    .populate("employeeId", "firstName lastName employeeCode email")
     .populate("brandId", "name")
     .populate("processId", "name")
-    .sort({ date: 1, _id: 1 })
+    .sort({ date: 1 })
     .skip(skip)
-    .limit(limit)
-    .lean();
+    .limit(limit);
 
-  // Fetch employee work pattern
-  const workPattern = await EmployeeWorkPattern.findOne({
-    employeeId: employee._id,
-    status: "ACTIVE",
-    effectiveFrom: { $lte: roster.periodEnd },
-    $or: [{ effectiveTo: null }, { effectiveTo: { $gte: roster.periodStart } }],
-  }).lean();
+  // Total records
+  const totalRecords = await RosterEntry.countDocuments(query);
 
-  // Fetch approved availability
-  const availability = await Availability.find({
-    employeeId: employee._id,
-    status: "APPROVED",
-    startDate: { $lte: roster.periodEnd },
-    endDate: { $gte: roster.periodStart },
-  }).lean();
+  // Fetch employee details for the employee-wise roster header
+  const employee = await Employee.findById(employeeId).select(
+    "firstName lastName employeeCode email podId status",
+  );
 
-  // Fetch public holidays
-  const publicHolidays = await PublicHoliday.find({
-    date: {
-      $gte: roster.periodStart,
-      $lte: roster.periodEnd,
-    },
-  }).lean();
-
-  /*
-   * Aggregate assignment counts by date.
-   * This avoids fetching all assignment documents
-   * just to build the daily schedule.
-   */
-  const dailyAssignmentAggregation = await RosterEntry.aggregate([
-    {
-      $match: assignmentQuery,
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            format: "%Y-%m-%d",
-            date: "$date",
-          },
-        },
-        totalAssignments: {
-          $sum: 1,
-        },
-      },
-    },
-  ]);
-
-  // Map daily assignment counts
-  const dailyAssignmentMap = new Map();
-
-  dailyAssignmentAggregation.forEach((item) => {
-    dailyAssignmentMap.set(item._id, item.totalAssignments);
-  });
-
-  const rosterDates = getRosterDates(roster);
-
-  const dailySchedule = rosterDates.map((date) => {
-    const dateKey = getDateKey(date);
-    const dayName = getDayName(date);
-
-    const dailyAssignmentCount = dailyAssignmentMap.get(dateKey) || 0;
-
-    const dailyAvailability = availability.filter(
-      (item) =>
-        date >= new Date(item.startDate) && date <= new Date(item.endDate),
-    );
-
-    const holiday = publicHolidays.find(
-      (item) => getDateKey(item.date) === dateKey,
-    );
-
-    const mandatoryWeeklyOff =
-      workPattern?.mandatoryWeeklyOffDays?.includes(dayName) || false;
-
-    const preferredWeeklyOff =
-      workPattern?.preferredWeeklyOffDays?.includes(dayName) || false;
-
-    const isWorkingDay = workPattern?.workingDays?.includes(dayName) || false;
-
-    return {
-      date: dateKey,
-      day: dayName,
-
-      totalAssignments: dailyAssignmentCount,
-
-      isWorkingDay,
-
-      mandatoryWeeklyOff,
-      preferredWeeklyOff,
-
-      isPublicHoliday: Boolean(holiday),
-      publicHoliday: holiday || null,
-
-      approvedAvailability: dailyAvailability,
-
-      dayStatus:
-        dailyAssignmentCount > 0
-          ? "SCHEDULED"
-          : mandatoryWeeklyOff
-            ? "MANDATORY_WEEKLY_OFF"
-            : dailyAvailability.length > 0
-              ? "APPROVED_LEAVE"
-              : holiday
-                ? "PUBLIC_HOLIDAY"
-                : preferredWeeklyOff
-                  ? "PREFERRED_WEEKLY_OFF"
-                  : isWorkingDay
-                    ? "UNASSIGNED"
-                    : "NON_WORKING_DAY",
-    };
-  });
+  // Fetch roster details
+  const roster = await Roster.findById(rosterId).select(
+    "name periodStart periodEnd status",
+  );
 
   return {
-    rosterId: roster._id,
-
     employee,
-
-    periodStart: roster.periodStart,
-    periodEnd: roster.periodEnd,
-
-    workPattern,
-
+    roster,
+    rosterId,
+    period: roster?.period,
+    periodStart: roster?.periodStart,
+    periodEnd: roster?.periodEnd,
     totalAssignments: totalRecords,
-
     assignments,
-
-    dailySchedule,
-
     pagination: {
       currentPage: page,
       limit,
       totalRecords,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1,
+      totalPages: Math.ceil(totalRecords / limit),
+      hasNextPage: page < Math.ceil(totalRecords / limit),
+      hasPrevPage: page > 1,
     },
   };
 };

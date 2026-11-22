@@ -10,7 +10,7 @@ export const updateRosterEntry = createAsyncThunk(
         `/update-roster-entry/${id}`,
         updatedData,
       );
-
+      console.log(response.data);
       toast.success(
         response.data.message || "Roster entry updated successfully!",
       );
