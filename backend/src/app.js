@@ -51,17 +51,17 @@ connectDB()
   });
 
 // handle request using instande of express
-app.use("/api", employeeRouter);
-app.use("/api", podRouter);
-app.use("/api", brandRouter);
-app.use("/api", allocationRouter);
-app.use("/api", processRouter);
-app.use("/api", workingRuleRouter);
-app.use("/api", rosterRouter);
-app.use("/api", rosterConflictRouter);
-app.use("/api", rosterEntryRouter);
-app.use("/api", availabilityRouter);
-app.use("/api", rosterViewRouter);
+app.use("/", employeeRouter);
+app.use("/", podRouter);
+app.use("/", brandRouter);
+app.use("/", allocationRouter);
+app.use("/", processRouter);
+app.use("/", workingRuleRouter);
+app.use("/", rosterRouter);
+app.use("/", rosterConflictRouter);
+app.use("/", rosterEntryRouter);
+app.use("/", availabilityRouter);
+app.use("/", rosterViewRouter);
 
 app.use((req, res) => {
   res.send("server is listening");
