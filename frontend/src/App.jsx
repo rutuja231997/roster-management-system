@@ -11,6 +11,7 @@ import Allocations from "./pages/Allocations";
 import WorkingRules from "./pages/WorkingRules";
 import Roster from "./pages/Roster";
 import RosterConflict from "./pages/RosterConflict";
+import Availability from "./pages/Availability";
 
 import { Provider } from "react-redux";
 import appStore from "./utils/redux/appStore";
@@ -60,6 +61,7 @@ function App() {
               path="/roster-conflict/:rosterId"
               element={<RosterConflict />}
             />
+            <Route path="/availability" element={<Availability />} />
           </Route>
         </Routes>
       </BrowserRouter>

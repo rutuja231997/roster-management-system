@@ -10,6 +10,7 @@ import monthlyRosterReducer from "./slices/monthlyRosterSlice";
 import rosterViewReducer from "./slices/rosterViewSlice";
 import rosterEntryReducer from "./slices/rosterEntrySlice";
 import rosterConflictReducer from "./slices/rosterConflictSlice";
+import availabilityReducer from "./slices/availabilitySlice";
 
 const appStore = configureStore({
   reducer: {
@@ -23,6 +24,7 @@ const appStore = configureStore({
     rosterView: rosterViewReducer,
     rosterEntry: rosterEntryReducer,
     rosterConflict: rosterConflictReducer,
+    availability: availabilityReducer,
   },
 });
 
